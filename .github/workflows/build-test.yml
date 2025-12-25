@@ -22,8 +22,10 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pipenv
-        pipenv install --dev --system
+        pip install flask flask-admin flask-bootstrap flask-cache flask-flatpages \
+                    flask-gravatar flask-login flask-mail flask-pymongo flask-restless \
+                    flask-sqlalchemy flask-themes flask-uploads flask-wtf flask-cors \
+                    requests werkzeug wtforms
     
     - name: Check Python syntax
       run: |
