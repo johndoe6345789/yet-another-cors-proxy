@@ -124,11 +124,13 @@ def api_auth_status():
 # === Proxy endpoints ===
 
 @app.route('/api/proxy/<path:proxy_name>', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH'])
+@login_required
 def proxy_endpoint(proxy_name):
     """
     Proxy requests to configured external URLs.
     Configure proxy endpoints in configuration.py under PROXY_ENDPOINTS.
     Example: PROXY_ENDPOINTS = {'/api/proxy/example': 'https://api.example.com'}
+    Authentication required to prevent abuse.
     """
     proxy_config = app.config.get('PROXY_ENDPOINTS', {})
     
@@ -148,8 +150,15 @@ def proxy_endpoint(proxy_name):
     
     # Forward the request
     try:
-        # Prepare headers (exclude host header)
-        headers = {key: value for key, value in request.headers if key.lower() != 'host'}
+        # Safe headers to forward (exclude sensitive ones)
+        safe_headers = ['content-type', 'accept', 'accept-language', 'user-agent']
+        headers = {key: value for key, value in request.headers if key.lower() in safe_headers}
+        
+        # Get request body with size limit (10MB)
+        max_content_length = 10 * 1024 * 1024  # 10MB
+        content_length = request.content_length
+        if content_length and content_length > max_content_length:
+            return jsonify({'error': 'Request body too large (max 10MB)'}), 413
         
         # Forward the request with the same method, headers, and body
         response = requests.request(
@@ -158,12 +167,15 @@ def proxy_endpoint(proxy_name):
             headers=headers,
             data=request.get_data(),
             params=request.args,
-            allow_redirects=False
+            allow_redirects=False,
+            timeout=30  # 30 second timeout
         )
         
         # Return the response
         return (response.content, response.status_code, response.headers.items())
     
+    except requests.exceptions.Timeout:
+        return jsonify({'error': 'Proxy request timed out'}), 504
     except requests.exceptions.RequestException as e:
         return jsonify({'error': f'Proxy request failed: {str(e)}'}), 502
 

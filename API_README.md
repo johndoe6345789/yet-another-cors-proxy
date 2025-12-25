@@ -64,11 +64,23 @@ The application will be available at `http://localhost:5000`
 
 ## Default Credentials
 
-After running `init_db.py`, you can log in with:
-- **Username**: `admin`
-- **Password**: `admin123`
+After running `init_db.py`, a default admin user is created with a securely generated random password. The credentials will be displayed once during initialization:
 
-**IMPORTANT**: Change the default password after first login!
+```bash
+pipenv run python init_db.py
+```
+
+Output:
+```
+============================================================
+Username: admin
+Password: <randomly-generated-secure-password>
+============================================================
+IMPORTANT: Save this password securely!
+          This password will not be shown again.
+```
+
+**SECURITY NOTE**: The password is randomly generated for security. Make sure to save it when shown during initialization.
 
 ## API Endpoints
 
@@ -106,7 +118,13 @@ After running `init_db.py`, you can log in with:
 #### Proxy Requests
 - **URL**: `/api/proxy/<proxy_name>`
 - **Methods**: `GET`, `POST`, `PUT`, `DELETE`, `PATCH`
+- **Authentication**: Required (must be logged in)
 - **Description**: Proxy requests to configured external URLs
+- **Security Features**:
+  - Authentication required to prevent unauthorized access
+  - Request body size limited to 10MB
+  - Only safe headers are forwarded (content-type, accept, etc.)
+  - 30-second timeout for external requests
 
 To configure proxy endpoints, edit `app/configuration.py`:
 
@@ -119,8 +137,14 @@ PROXY_ENDPOINTS = {
 
 Example usage:
 ```bash
-# Proxy to https://jsonplaceholder.typicode.com/posts/1
-curl http://localhost:5000/api/proxy/jsonplaceholder/posts/1
+# Login first
+curl -X POST http://localhost:5000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"your_password"}' \
+  -c cookies.txt
+
+# Then proxy to https://jsonplaceholder.typicode.com/posts/1
+curl -b cookies.txt http://localhost:5000/api/proxy/jsonplaceholder/posts/1
 ```
 
 ## CORS Configuration
