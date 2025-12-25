@@ -30,6 +30,11 @@ class ProductionConfig(Config):
 
 class DevelopmentConfig(Config):
 	DEBUG = True
+	
+	# Example proxy endpoints for testing
+	PROXY_ENDPOINTS = {
+		'/api/proxy/jsonplaceholder': 'https://jsonplaceholder.typicode.com'
+	}
 
 class TestingConfig(Config):
 	TESTING = True
