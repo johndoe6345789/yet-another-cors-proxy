@@ -171,8 +171,14 @@ def proxy_endpoint(proxy_name):
             timeout=30  # 30 second timeout
         )
         
+        # Safe response headers to forward
+        safe_response_headers = ['content-type', 'content-length', 'cache-control', 
+                                 'expires', 'etag', 'last-modified']
+        filtered_headers = [(key, value) for key, value in response.headers.items() 
+                           if key.lower() in safe_response_headers]
+        
         # Return the response
-        return (response.content, response.status_code, response.headers.items())
+        return (response.content, response.status_code, filtered_headers)
     
     except requests.exceptions.Timeout:
         return jsonify({'error': 'Proxy request timed out'}), 504
