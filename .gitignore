@@ -43,3 +43,14 @@ nosetests.xml
 # Nilton Comandos
 comandos_git.sh
 .directory
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+application.db
+
+# Environment files
+.env
+.env.local
+

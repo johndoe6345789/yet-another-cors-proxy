@@ -11,6 +11,15 @@ class Config(object):
 	CSRF_ENABLED = True
 	SQLALCHEMY_TRACK_MODIFICATIONS = True
 
+	# CORS settings - permissive by default
+	CORS_ORIGINS = "*"
+	CORS_METHODS = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+	CORS_ALLOW_HEADERS = "*"
+
+	# Proxy endpoints configuration
+	# Format: {'/api/proxy/name': 'https://target-url.com'}
+	PROXY_ENDPOINTS = {}
+
 	#Get your reCaptche key on: https://www.google.com/recaptcha/admin/create
 	#RECAPTCHA_PUBLIC_KEY = "6LffFNwSAAAAAFcWVy__EnOCsNZcG2fVHFjTBvRP"
 	#RECAPTCHA_PRIVATE_KEY = "6LffFNwSAAAAAO7UURCGI7qQ811SOSZlgU69rvv7"

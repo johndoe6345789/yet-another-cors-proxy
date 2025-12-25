@@ -9,6 +9,7 @@ from flask_bootstrap import Bootstrap
 from flask_sqlalchemy import SQLAlchemy
 from flask_pymongo import PyMongo
 from flask_login import LoginManager
+from flask_cors import CORS
 
 app = Flask(__name__)
 
@@ -16,6 +17,12 @@ app = Flask(__name__)
 #app.config.from_object('configuration.ProductionConfig')
 app.config.from_object('app.configuration.DevelopmentConfig')
 #app.config.from_object('configuration.TestingConfig')
+
+# Enable CORS with permissive settings
+CORS(app, 
+     origins=app.config.get('CORS_ORIGINS', '*'),
+     methods=app.config.get('CORS_METHODS', ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']),
+     allow_headers=app.config.get('CORS_ALLOW_HEADERS', '*'))
 
 bs = Bootstrap(app) #flask-bootstrap
 db = SQLAlchemy(app) #flask-sqlalchemy
