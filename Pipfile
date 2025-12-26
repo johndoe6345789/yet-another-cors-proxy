@@ -18,6 +18,9 @@ flask-sqlalchemy = "*"
 flask-themes = "*"
 flask-uploads = "*"
 flask-wtf = "*"
+flask-cors = "*"
+requests = "*"
+werkzeug = "*"
 
 [dev-packages]
 

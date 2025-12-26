@@ -1,8 +1,9 @@
-from flask import url_for, redirect, render_template, flash, g, session
+from flask import url_for, redirect, render_template, flash, g, session, request, jsonify
 from flask_login import login_user, logout_user, current_user, login_required
-from app import app, lm
+from app import app, lm, db
 from app.forms import ExampleForm, LoginForm
 from app.models import User
+import requests
 
 
 @app.route('/')
@@ -54,7 +55,14 @@ def login():
         return redirect(url_for('index'))
     form = LoginForm()
     if form.validate_on_submit():
-        login_user(g.user)
+        # Find user by username
+        user = User.query.filter_by(user=form.user.data).first()
+        if user and user.check_password(form.password.data):
+            login_user(user)
+            flash('Logged in successfully!')
+            return redirect(url_for('index'))
+        else:
+            flash('Invalid username or password')
 
     return render_template('login.html', 
         title = 'Sign In',
@@ -64,5 +72,117 @@ def login():
 def logout():
     logout_user()
     return redirect(url_for('index'))
+
+# === API Authentication endpoints ===
+
+@app.route('/api/auth/login', methods=['POST'])
+def api_login():
+    """API endpoint for authentication"""
+    data = request.get_json()
+    if not data or 'username' not in data or 'password' not in data:
+        return jsonify({'error': 'Missing username or password'}), 400
+    
+    user = User.query.filter_by(user=data['username']).first()
+    if user and user.check_password(data['password']):
+        login_user(user)
+        return jsonify({
+            'success': True,
+            'message': 'Logged in successfully',
+            'user': {
+                'id': user.id,
+                'username': user.user,
+                'name': user.name,
+                'email': user.email
+            }
+        }), 200
+    else:
+        return jsonify({'error': 'Invalid username or password'}), 401
+
+@app.route('/api/auth/logout', methods=['POST'])
+@login_required
+def api_logout():
+    """API endpoint for logout"""
+    logout_user()
+    return jsonify({'success': True, 'message': 'Logged out successfully'}), 200
+
+@app.route('/api/auth/status', methods=['GET'])
+def api_auth_status():
+    """Check authentication status"""
+    if current_user.is_authenticated:
+        return jsonify({
+            'authenticated': True,
+            'user': {
+                'id': current_user.id,
+                'username': current_user.user,
+                'name': current_user.name,
+                'email': current_user.email
+            }
+        }), 200
+    else:
+        return jsonify({'authenticated': False}), 200
+
+# === Proxy endpoints ===
+
+@app.route('/api/proxy/<path:proxy_name>', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH'])
+@login_required
+def proxy_endpoint(proxy_name):
+    """
+    Proxy requests to configured external URLs.
+    Configure proxy endpoints in configuration.py under PROXY_ENDPOINTS.
+    Example: PROXY_ENDPOINTS = {'/api/proxy/example': 'https://api.example.com'}
+    Authentication required to prevent abuse.
+    """
+    proxy_config = app.config.get('PROXY_ENDPOINTS', {})
+    
+    # Build the full proxy path
+    proxy_path = f'/api/proxy/{proxy_name}'
+    
+    # Find matching proxy configuration
+    target_url = None
+    for config_path, url in proxy_config.items():
+        if proxy_path.startswith(config_path):
+            # Replace the config path with the target URL
+            target_url = url + proxy_path.replace(config_path, '')
+            break
+    
+    if not target_url:
+        return jsonify({'error': 'No proxy configuration found for this path'}), 404
+    
+    # Forward the request
+    try:
+        # Safe headers to forward (exclude sensitive ones)
+        safe_headers = ['content-type', 'accept', 'accept-language', 'user-agent']
+        headers = {key: value for key, value in request.headers if key.lower() in safe_headers}
+        
+        # Get request body with size limit (10MB)
+        max_content_length = 10 * 1024 * 1024  # 10MB
+        content_length = request.content_length
+        if content_length and content_length > max_content_length:
+            return jsonify({'error': 'Request body too large (max 10MB)'}), 413
+        
+        # Forward the request with the same method, headers, and body
+        response = requests.request(
+            method=request.method,
+            url=target_url,
+            headers=headers,
+            data=request.get_data(),
+            params=request.args,
+            allow_redirects=False,
+            timeout=30  # 30 second timeout
+        )
+        
+        # Safe response headers to forward
+        safe_response_headers = ['content-type', 'content-length', 'cache-control', 
+                                 'expires', 'etag', 'last-modified']
+        filtered_headers = [(key, value) for key, value in response.headers.items() 
+                           if key.lower() in safe_response_headers]
+        
+        # Return the response
+        return (response.content, response.status_code, filtered_headers)
+    
+    except requests.exceptions.Timeout:
+        return jsonify({'error': 'Proxy request timed out'}), 504
+    except requests.exceptions.RequestException as e:
+        return jsonify({'error': f'Proxy request failed: {str(e)}'}), 502
 
 # ====================
